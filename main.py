@@ -1,6 +1,6 @@
 import os
 import re
-import sys
+
 
 r = re.compile("M[14][1-5]{0,1}[AB]{0,1}-POD[\d](-\d+){3}")
 
@@ -17,16 +17,12 @@ def parseCritical(miner):
     print(miner['Hostname'] + " :" + miner['Status'])
 
 def findCritical(line, miner):
-    if line.find("host_name") >= 0:
-        miner['Hostname'] = line.split("=")[1]
-    elif line.find("service_description") >= 0:
-        miner['Service'] = line.split("=")[1]
-    elif line.find("last_time_ok") >= 0:
+    if line.find("last_time_ok") >= 0:
         miner['Uptime'] = int(line.split("=")[1])
     elif line.find("last_time_critical") >= 0:
-        miner['Downtime'] =  int(line.split("=")[1])
-    elif line.find("plugin_output=CRITICAL"):
-        miner['Status'] = line.split("=")[1]
+        miner['Downtime'] = int(line.split("=")[1])
+    elif line.find("plugin_output=CRITICAL") >= 0:
+        miner['Status'] = line.split("=",1)[1]
         return True
     return False
 
@@ -73,6 +69,19 @@ def parseFile(filename):
                 downtime = int(line.split("=")[1])
                 isHostDown(uptime, downtime, hostname)
         elif isParsingHost == False and isParsingService == True:
+            if line.find("host_name") >= 0:
+                temp = r.search(line)
+                if temp != None:
+                    miner["Hostname"] = temp.group(0)
+                else:
+                    isParsingService = False
+                    isParsingHost = False     
+            if line.find("service_") >= 0:
+                miner["Service"] = line.split("=",1)[1]
+                if line.split("=")[1].find("Blade") >= 0:
+                    isParsingService = False
+                    isParsingHost = False
+                    continue
             if findCritical(line, miner) == True:
                 parseCritical(miner)
             else:
